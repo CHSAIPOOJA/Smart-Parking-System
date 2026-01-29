@@ -1,0 +1,109 @@
+print("Program started")
+
+import sys
+sys.path.append('.')
+import cv2
+import pickle
+import numpy as np
+from skimage.transform import resize
+from collections import defaultdict, deque
+
+from util import get_parking_spots_bboxes
+
+
+# Load trained model
+with open('dataset/archive (1)/parking/model/model.p', 'rb') as f:
+    model = pickle.load(f)
+
+# Load video and mask
+video = cv2.VideoCapture(r'dataset/archive (1)/parking/parking_1920_1080_loop.mp4')
+mask = cv2.imread(r'dataset/archive (1)/parking/mask_1920_1080.png', 0)
+
+# Get parking spot boxes
+parking_spots = get_parking_spots_bboxes(mask)
+
+print(f"\n{'='*60}")
+print(f"Total parking spots detected: {len(parking_spots)}")
+print(f"{'='*60}\n")
+
+# Temporal smoothing: store predictions for last 5 frames per slot
+HISTORY_SIZE = 5
+CONFIDENCE_THRESHOLD = 0.4
+slot_history = defaultdict(lambda: deque(maxlen=HISTORY_SIZE))
+
+frame_count = 0
+
+while True:
+    ret, frame = video.read()
+    if not ret:
+        video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        continue
+
+    frame_count += 1
+    free_count = 0
+
+    for slot_idx, (x, y, w, h) in enumerate(parking_spots):
+        crop = frame[y:y+h, x:x+w]
+        
+        # Check pixel intensity - ignore very dark/bright regions
+        mean_intensity = np.mean(crop)
+        if mean_intensity < 20 or mean_intensity > 240:
+            # Skip extremely dark or bright regions
+            final_prediction = 1  # Mark as occupied if can't determine
+        else:
+            # Use 15x15 exactly like the model was trained
+            crop_resized = resize(crop, (15, 15, 3))
+            crop_flat = crop_resized.flatten().reshape(1, -1)
+            
+            # Get prediction from model
+            prediction = model.predict(crop_flat)[0]
+            
+            # Add to history for temporal smoothing
+            slot_history[slot_idx].append(prediction)
+            
+            # Get majority vote from history (only use if we have enough history)
+            if len(slot_history[slot_idx]) >= HISTORY_SIZE:
+                history_list = list(slot_history[slot_idx])
+                # Count 0s and non-0s for temporal smoothing
+                empty_votes = sum(1 for p in history_list if p == 0)
+                occupied_votes = len(history_list) - empty_votes
+                # Use majority vote
+                final_prediction = 0 if empty_votes > occupied_votes else 1
+            else:
+                # During warmup phase, use direct prediction
+                final_prediction = prediction
+
+        # prediction: 0 = EMPTY (free/green), 1 = NOT_EMPTY (occupied/red)
+        if final_prediction == 0:
+            color = (0, 255, 0)  # GREEN for empty
+            free_count += 1
+        else:
+            color = (0, 0, 255)   # RED for occupied
+
+        cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
+
+    cv2.putText(frame, f'Free slots: {free_count} | Total: {len(parking_spots)}',
+                (50, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                1, (255, 255, 255), 2)
+    
+    occupied_count = len(parking_spots) - free_count
+    occupancy_percent = (occupied_count / len(parking_spots) * 100) if len(parking_spots) > 0 else 0
+    
+    cv2.putText(frame, f'Occupied: {occupied_count} | Occupancy: {occupancy_percent:.1f}%',
+                (50, 90), cv2.FONT_HERSHEY_SIMPLEX,
+                1, (255, 255, 255), 2)
+    
+    cv2.putText(frame, f'Frame: {frame_count}',
+                (50, 130), cv2.FONT_HERSHEY_SIMPLEX,
+                0.7, (200, 200, 200), 1)
+
+    cv2.imshow('Smart Parking System', frame)
+
+    if cv2.waitKey(30) & 0xFF == 27:
+        break
+
+
+
+video.release()
+cv2.destroyAllWindows()
+print("Program finished")
