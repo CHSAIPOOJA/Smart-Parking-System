@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Smart Parking — Live Analytics</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .row { display:flex; gap:16px; align-items:flex-start; }
+    .col { flex:1; }
+    img { max-width:100%; border:1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>Smart Parking — Live Analytics</h1>
+  <p>Auto-refresh every <span id="interval">3</span>s. Click "Refresh" to force update.</p>
+  <button id="refresh">Refresh now</button>
+  <div class="row">
+    <div class="col">
+      <h3>Occupancy % vs Time</h3>
+      <img id="occupancy" src="/plot/occupancy.png?ts=0" alt="Occupancy vs Time" />
+    </div>
+    <div class="col">
+      <h3>Current Free vs Occupied</h3>
+      <img id="bar" src="/plot/bar.png?ts=0" alt="Free vs Occupied" />
+    </div>
+  </div>
+  <div style="margin-top:16px;">
+    <h3>Moving Average + Forecast</h3>
+    <img id="moving" src="/plot/moving.png?ts=0" alt="Moving average" />
+  </div>
+
+  <script>
+    const intervalSecs = 3;
+    document.getElementById('interval').innerText = intervalSecs;
+    function refreshImages(){
+      const ts = Date.now();
+      document.getElementById('occupancy').src = '/plot/occupancy.png?ts=' + ts;
+      document.getElementById('bar').src = '/plot/bar.png?ts=' + ts;
+      document.getElementById('moving').src = '/plot/moving.png?ts=' + ts;
+    }
+    document.getElementById('refresh').addEventListener('click', refreshImages);
+    setInterval(refreshImages, intervalSecs * 1000);
+  </script>
+</body>
+</html>
