@@ -24,12 +24,79 @@ if not file_exists:
     csv_writer.writerow(['free_slots', 'occupied_slots', 'total_slots', 'occupancy_percent', 'frame_number', 'timestamp'])
 
 # Load trained model
-with open('../dataset/archive (1)/parking/model/model.p', 'rb') as f:
+# with open('../dataset/archive (1)/parking/model/model.p', 'rb') as f:
+#     model = pickle.load(f)
+
+
+
+# Always correct absolute path based on project folder
+MODEL_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),  
+    'dataset',
+    'archive (1)',
+    'parking',
+    'model',
+    'model.p'
+)
+
+MODEL_PATH = os.path.abspath(MODEL_PATH)
+print("Model path:", MODEL_PATH)
+
+with open(MODEL_PATH, 'rb') as f:
     model = pickle.load(f)
 
 # Load video and mask
-video = cv2.VideoCapture(r'../dataset/archive (1)/parking/parking_1920_1080_loop.mp4')
-mask = cv2.imread(r'../dataset/archive (1)/parking/mask_1920_1080.png', 0)
+# video = cv2.VideoCapture(r'../dataset/archive (1)/parking/parking_1920_1080_loop.mp4')
+  
+
+# Build absolute path for video
+VIDEO_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),  # go one folder up
+    'dataset',
+    'archive (1)',
+    'parking',
+    'parking_1920_1080_loop.mp4'
+)
+VIDEO_PATH = os.path.abspath(VIDEO_PATH)
+print("Video path:", VIDEO_PATH)
+
+video = cv2.VideoCapture(VIDEO_PATH)
+
+if not video.isOpened():
+    print(f"ERROR: Could not open video at {VIDEO_PATH}")
+    raise FileNotFoundError(f"Video missing at: {VIDEO_PATH}")
+
+
+
+
+
+# mask = cv2.imread(r'../dataset/archive (1)/parking/mask_1920_1080.png', 0)
+
+
+
+
+# Build correct path for mask
+MASK_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'dataset',
+    'archive (1)',
+    'parking',
+    'mask_1920_1080.png'
+)
+
+MASK_PATH = os.path.abspath(MASK_PATH)
+print("Mask path:", MASK_PATH)
+
+mask = cv2.imread(MASK_PATH, 0)
+
+if mask is None:
+    print("ERROR: Mask not found!")
+    raise FileNotFoundError(f"Mask missing at: {MASK_PATH}")
+
+print("Mask loaded successfully!")
+
+
+
 
 # Get parking spot boxes
 parking_spots = get_parking_spots_bboxes(mask)

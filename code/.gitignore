@@ -1,0 +1,7 @@
+# Ignore data and video files
+*.csv
+*.mp4
+
+# Ignore Python cache
+__pycache__/
+*.pyc
